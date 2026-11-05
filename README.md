@@ -1,107 +1,58 @@
-# 🌡️ Smart Classroom AC Setpoint Prediction API
+# 🌡️ Smart Classroom AC Setpoint Prediction API (ML Backend)
 
-A production-ready **FastAPI** service for predicting smart classroom AC setpoint temperature (°C) using a trained **Linear Regression** model (`classroom_ac_model.pkl`).
+[![Render](https://img.shields.io/badge/Render-Live-brightgreen?logo=render)](https://spiot-mini-project-ml-backend.onrender.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://www.python.org/)
+[![Swagger Docs](https://img.shields.io/badge/API_Docs-Swagger_UI-85EA2D?logo=swagger)](https://spiot-mini-project-ml-backend.onrender.com/docs)
 
-Configured for **Render** cloud deployment with automatic preprocessing, interactive Swagger documentation, and health monitoring.
-
----
-
-## 📌 Features
-
-- **Automated Preprocessing**:
-  - Automatically parses `timestamp` (`YYYY-MM-DD HH:MM:SS` or ISO format) to extract `hour` and `minute`.
-  - Supports explicit `hour` and `minute` inputs.
-  - Encodes categorical `day_period` (`Morning` → `0`, `Afternoon` → `1`, `Evening` → `2`) with case-insensitivity.
-  - Auto-infers `day_period` from `hour` if omitted.
-  - Aligns feature vectors into the exact order trained in the notebook:
-    `[indoor_temp_c, indoor_humidity_pct, outdoor_temp_c, outdoor_humidity_pct, day_period, hour, minute]`
-- **Model Output**:
-  - Returns the exact continuous prediction (`predicted_ac_setpoint_c`).
-  - Returns practical AC remote recommended setpoint rounded to nearest 0.5°C (`recommended_setpoint_c`).
-  - Returns the full preprocessed feature dictionary.
-- **Endpoints**:
-  - `GET /` — API metadata and endpoint overview.
-  - `GET /health` — Health check endpoint for Render monitoring.
-  - `GET /model-info` — Model type, feature names, coefficients, and intercept.
-  - `POST /predict` — Single prediction with automated preprocessing and validation.
-  - `POST /predict/batch` — Batch predictions for multiple sensor readings.
-- **Render Ready**: Includes `Procfile`, `render.yaml`, `requirements.txt`, and dynamic `$PORT` binding.
+Production ML backend API for predicting optimal classroom **Air Conditioner Setpoint Temperatures (°C)** using a trained **Linear Regression** model. The API automatically handles IoT sensor preprocessing, timestamp parsing, categorical encoding, and feature vector alignment.
 
 ---
 
-## 📂 Project Structure
+## 🌐 Live Cloud Deployment (Render)
 
-```text
-ML_Smart_AC_Setpoint/
-├── main.py                      # FastAPI application & preprocessing logic
-├── classroom_ac_model.pkl       # Trained Linear Regression model
-├── Dataset.csv                  # Reference training dataset
-├── requirements.txt             # Pinned production dependencies
-├── Procfile                     # Web process definition for Render
-├── render.yaml                  # Render Blueprint configuration
-├── test_api.py                  # Unit and integration test suite
-├── .gitignore                   # Ignored files
-└── README.md                    # Project documentation
-```
+- **Live Base URL**: [`https://spiot-mini-project-ml-backend.onrender.com`](https://spiot-mini-project-ml-backend.onrender.com)
+- **Interactive Swagger UI (Test in Browser)**: [`https://spiot-mini-project-ml-backend.onrender.com/docs`](https://spiot-mini-project-ml-backend.onrender.com/docs)
+- **Alternative ReDoc UI**: [`https://spiot-mini-project-ml-backend.onrender.com/redoc`](https://spiot-mini-project-ml-backend.onrender.com/redoc)
+- **Health Check Endpoint**: [`https://spiot-mini-project-ml-backend.onrender.com/health`](https://spiot-mini-project-ml-backend.onrender.com/health)
 
 ---
 
-## ⚙️ Model & Preprocessing Summary
+## 📋 API Endpoints Summary
 
-The model was trained on classroom environmental data:
-
-| Feature Name | Description | Preprocessing |
+| Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `indoor_temp_c` | Classroom indoor temperature (°C) | Direct float |
-| `indoor_humidity_pct` | Classroom indoor relative humidity (%) | Direct float |
-| `outdoor_temp_c` | Ambient outdoor temperature (°C) | Direct float |
-| `outdoor_humidity_pct` | Ambient outdoor relative humidity (%) | Direct float |
-| `day_period` | Time of day period | Mapped: `Morning` → 0, `Afternoon` → 1, `Evening` → 2 |
-| `hour` | Hour of the reading (0 - 23) | Extracted from `timestamp` or direct integer |
-| `minute` | Minute of the reading (0 - 59) | Extracted from `timestamp` or direct integer |
+| `GET` | `/` | API status, metadata, and endpoint directory. |
+| `GET` | `/health` | Health check for uptime monitoring (returns `model_loaded: true`). |
+| `GET` | `/model-info` | Model metadata, intercept, and feature coefficients. |
+| `POST` | `/predict` | **Single Prediction**: Accepts classroom conditions, preprocesses, and predicts AC setpoint. |
+| `POST` | `/predict/batch` | **Batch Prediction**: Predicts setpoint for a list of multiple sensor readings. |
 
 ---
 
-## 🚀 Local Setup & Testing
+## 📥 Input Format Specification
 
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+You can send data either using a **timestamp string** (e.g. from an IoT gateway / sensor log) OR by providing **hour and minute** directly.
 
-### 2. Run the Test Suite
-```bash
-python test_api.py
-```
+### Fields
 
-### 3. Start the Server Locally
-```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-- Interactive Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- Alternative ReDoc UI: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+| Field Name | Type | Required? | Example | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `indoor_temp_c` | `float` | **Yes** | `26.45` | Classroom indoor temperature in °C (-20°C to 65°C). |
+| `indoor_humidity_pct` | `float` | **Yes** | `64.51` | Classroom indoor relative humidity in % (0% to 100%). |
+| `outdoor_temp_c` | `float` | **Yes** | `26.68` | Outdoor ambient temperature in °C (-20°C to 65°C). |
+| `outdoor_humidity_pct` | `float` | **Yes** | `74.79` | Outdoor ambient relative humidity in % (0% to 100%). |
+| `timestamp` | `string` | *Optional* | `"2026-11-02 08:30:00"` | Timestamp (`YYYY-MM-DD HH:MM:SS` or ISO). Automatically extracts `hour` and `minute`. |
+| `day_period` | `string` / `int` | *Optional* | `"Morning"` | `"Morning"` (0), `"Afternoon"` (1), `"Evening"` (2). Auto-inferred if omitted. |
+| `hour` | `int` | *Optional* | `8` | Hour of reading (0–23). Used if `timestamp` is omitted. |
+| `minute` | `int` | *Optional* | `30` | Minute of reading (0–59). Used if `timestamp` is omitted. |
 
 ---
 
-## 🌐 API Usage & Examples
+## 📤 Output Format Specification
 
-### Single Prediction (`POST /predict`)
+The response returns the exact ML prediction, a rounded AC remote setpoint, and the preprocessed features:
 
-#### Example Request:
-```bash
-curl -X POST "http://127.0.0.1:8000/predict" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "indoor_temp_c": 26.45,
-       "indoor_humidity_pct": 64.51,
-       "outdoor_temp_c": 26.68,
-       "outdoor_humidity_pct": 74.79,
-       "day_period": "Morning",
-       "timestamp": "2026-11-02 08:00:00"
-     }'
-```
-
-#### Example Response:
 ```json
 {
   "status": "success",
@@ -120,56 +71,178 @@ curl -X POST "http://127.0.0.1:8000/predict" \
 }
 ```
 
----
-
-## ☁️ How to Deploy on Render
-
-### Method 1: Using GitHub Web UI (Recommended)
-
-1. **Push your code to GitHub**:
-   ```bash
-   git init
-   git add .
-   git commit -m "Add smart AC setpoint prediction API"
-   git remote add origin https://github.com/<your-username>/<your-repo-name>.git
-   git push -u origin main
-   ```
-
-2. **Create a New Web Service on Render**:
-   - Go to [dashboard.render.com](https://dashboard.render.com) and log in.
-   - Click **New +** > **Web Service**.
-   - Connect your GitHub repository.
-
-3. **Configure Settings**:
-   - **Name**: `smart-ac-setpoint-api`
-   - **Region**: Choose closest to you (e.g., Singapore, Frankfurt, Oregon)
-   - **Branch**: `main`
-   - **Runtime**: `Python 3`
-   - **Build Command**:
-     ```bash
-     pip install -r requirements.txt
-     ```
-   - **Start Command**:
-     ```bash
-     uvicorn main:app --host 0.0.0.0 --port $PORT
-     ```
-   - **Instance Type**: Free tier
-
-4. **Environment Variables (Optional)**:
-   - Add `PYTHON_VERSION` = `3.11.9` under **Environment Variables**.
-
-5. **Deploy**:
-   - Click **Create Web Service**.
-   - Render will build and deploy your API. Once deployed, you will get a live URL such as:
-     `https://smart-ac-setpoint-api.onrender.com`
-   - Test it by visiting: `https://smart-ac-setpoint-api.onrender.com/docs`
+- **`predicted_ac_setpoint_c`**: Continuous output from the Linear Regression model (rounded to 2 decimal places).
+- **`recommended_setpoint_c`**: Practical AC setpoint rounded to the nearest 0.5°C increment (compatible with standard commercial AC controllers).
+- **`preprocessed_features`**: The exact numerical vector values passed to the model after parsing and encoding.
 
 ---
 
-### Method 2: Using Render Blueprint (`render.yaml`)
+## 💻 How to Use the API
 
-Because `render.yaml` is included in this repository:
-1. In Render Dashboard, click **New +** > **Blueprint**.
-2. Select your repository.
-3. Render will read `render.yaml` and configure the build command, start command, health check path, and python version automatically!
-4. Click **Apply**.
+### 1. Interactive Web Interface (No Code Needed)
+1. Open [`https://spiot-mini-project-ml-backend.onrender.com/docs`](https://spiot-mini-project-ml-backend.onrender.com/docs) in your browser.
+2. Click on **`POST /predict`** $\rightarrow$ **Try it out**.
+3. Edit the JSON body and click **Execute**.
+
+---
+
+### 2. cURL (Command Line / Terminal)
+
+#### Single Prediction:
+```bash
+curl -X POST "https://spiot-mini-project-ml-backend.onrender.com/predict" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "indoor_temp_c": 26.45,
+       "indoor_humidity_pct": 64.51,
+       "outdoor_temp_c": 26.68,
+       "outdoor_humidity_pct": 74.79,
+       "day_period": "Morning",
+       "timestamp": "2026-11-02 08:00:00"
+     }'
+```
+
+#### Batch Prediction:
+```bash
+curl -X POST "https://spiot-mini-project-ml-backend.onrender.com/predict/batch" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "inputs": [
+         {
+           "indoor_temp_c": 26.45,
+           "indoor_humidity_pct": 64.51,
+           "outdoor_temp_c": 26.68,
+           "outdoor_humidity_pct": 74.79,
+           "timestamp": "2026-11-02 08:00:00",
+           "day_period": "Morning"
+         },
+         {
+           "indoor_temp_c": 23.19,
+           "indoor_humidity_pct": 69.35,
+           "outdoor_temp_c": 27.73,
+           "outdoor_humidity_pct": 68.35,
+           "hour": 9,
+           "minute": 10,
+           "day_period": "Morning"
+         }
+       ]
+     }'
+```
+
+---
+
+### 3. Python (`requests`)
+
+```python
+import requests
+
+url = "https://spiot-mini-project-ml-backend.onrender.com/predict"
+
+payload = {
+    "indoor_temp_c": 26.45,
+    "indoor_humidity_pct": 64.51,
+    "outdoor_temp_c": 26.68,
+    "outdoor_humidity_pct": 74.79,
+    "day_period": "Morning",
+    "timestamp": "2026-11-02 08:00:00"
+}
+
+response = requests.post(url, json=payload)
+data = response.json()
+
+print(f"Predicted AC Setpoint: {data['predicted_ac_setpoint_c']} °C")
+print(f"Recommended Setpoint : {data['recommended_setpoint_c']} °C")
+```
+
+---
+
+### 4. JavaScript / TypeScript (`fetch`)
+
+```javascript
+const response = await fetch("https://spiot-mini-project-ml-backend.onrender.com/predict", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    indoor_temp_c: 26.45,
+    indoor_humidity_pct: 64.51,
+    outdoor_temp_c: 26.68,
+    outdoor_humidity_pct: 74.79,
+    day_period: "Morning",
+    timestamp: "2026-11-02 08:00:00"
+  })
+});
+
+const data = await response.json();
+console.log(`Recommended Setpoint: ${data.recommended_setpoint_c} °C`);
+```
+
+---
+
+### 5. ESP32 / Arduino (C++) IoT Integration
+
+```cpp
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+const char* serverUrl = "https://spiot-mini-project-ml-backend.onrender.com/predict";
+
+void sendSensorData(float inTemp, float inHum, float outTemp, float outHum, int hour, int minute) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(serverUrl);
+    http.addHeader("Content-Type", "application/json");
+
+    StaticJsonDocument<256> doc;
+    doc["indoor_temp_c"] = inTemp;
+    doc["indoor_humidity_pct"] = inHum;
+    doc["outdoor_temp_c"] = outTemp;
+    doc["outdoor_humidity_pct"] = outHum;
+    doc["hour"] = hour;
+    doc["minute"] = minute;
+
+    String requestBody;
+    serializeJson(doc, requestBody);
+
+    int httpResponseCode = http.POST(requestBody);
+    if (httpResponseCode == 200) {
+      String response = http.getString();
+      StaticJsonDocument<512> resDoc;
+      deserializeJson(resDoc, response);
+      float recommended = resDoc["recommended_setpoint_c"];
+      Serial.printf("Adjust AC Setpoint to: %.1f °C\n", recommended);
+    }
+    http.end();
+  }
+}
+```
+
+---
+
+## 🧠 Model Training Details
+
+- **Model Type**: Linear Regression (`sklearn.linear_model.LinearRegression`)
+- **Trained Model File**: `classroom_ac_model.pkl`
+- **Trained Formula**:
+  $$\text{Setpoint} = 14.6786 + (0.0907 \times T_{\text{in}}) - (0.2435 \times H_{\text{in}}) + (0.8816 \times T_{\text{out}}) + (0.0893 \times H_{\text{out}}) + (0.3077 \times \text{Period}) - (0.5474 \times \text{Hour}) + (0.00013 \times \text{Minute})$$
+
+---
+
+## 🛠️ Local Development
+
+```bash
+# Clone the repository
+git clone https://github.com/Master-45-vic/SPIOT_Mini_Project_ML_Backend.git
+cd SPIOT_Mini_Project_ML_Backend
+
+# Install requirements
+pip install -r requirements.txt
+
+# Run tests
+python test_api.py
+
+# Run development server
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
