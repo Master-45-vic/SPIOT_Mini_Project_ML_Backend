@@ -12,7 +12,9 @@ import joblib
 # ---------------------------------------------------------------------------
 # Robust Model Loader
 # ---------------------------------------------------------------------------
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "classroom_ac_model.pkl")
+NEW_MODEL_PATH = os.path.join(os.path.dirname(__file__), "classroom_ac_model_new.pkl")
+LEGACY_MODEL_PATH = os.path.join(os.path.dirname(__file__), "classroom_ac_model.pkl")
+MODEL_PATH = NEW_MODEL_PATH if os.path.exists(NEW_MODEL_PATH) else LEGACY_MODEL_PATH
 
 # Exact feature names trained in the notebook:
 FEATURE_NAMES = [
@@ -25,17 +27,17 @@ FEATURE_NAMES = [
     "minute"
 ]
 
-# Known model parameters from notebook training:
+# Known model parameters from new notebook training (classroom_ac_model_new.pkl):
 FALLBACK_COEF = np.array([
-    9.07484644e-02,  # indoor_temp_c
-    -2.43544964e-01, # indoor_humidity_pct
-    8.81586439e-01,  # outdoor_temp_c
-    8.92783403e-02,  # outdoor_humidity_pct
-    3.07663366e-01,  # day_period
-    -5.47355485e-01, # hour
-    1.30723595e-04   # minute
+    0.011553341381387667,  # indoor_temp_c
+    -0.018827514337222368, # indoor_humidity_pct
+    -0.4260989568958567,   # outdoor_temp_c
+    -0.02559405054366629,  # outdoor_humidity_pct
+    0.8427468694895697,    # day_period
+    -0.356397434918712,    # hour
+    -0.0017121921477759604 # minute
 ], dtype=np.float64)
-FALLBACK_INTERCEPT = 14.678647820076161
+FALLBACK_INTERCEPT = 41.83282559210716
 
 
 def load_model():
@@ -149,11 +151,12 @@ def preprocess_single_input(
     timestamp: Optional[str] = None,
     day_period: Optional[Union[str, int]] = None,
     hour: Optional[int] = None,
-    minute: Optional[int] = None
+    minute: Optional[int] = None,
+    time: Optional[str] = None
 ) -> dict:
     """
     Implements the exact preprocessing pipeline from the ML notebook:
-    1. Parse timestamp into datetime to extract hour and minute (or use explicit hour/minute).
+    1. Parse timestamp/time into datetime to extract hour and minute (or use explicit hour/minute).
     2. Convert day_period ("Morning": 0, "Afternoon": 1, "Evening": 2).
     3. Order features matching model input:
        [indoor_temp_c, indoor_humidity_pct, outdoor_temp_c, outdoor_humidity_pct, day_period, hour, minute]
@@ -161,9 +164,10 @@ def preprocess_single_input(
     extracted_hour = hour
     extracted_minute = minute
 
-    # Step 1: Extract hour and minute from timestamp if provided
-    if timestamp:
-        ts_clean = timestamp.strip()
+    # Step 1: Extract hour and minute from timestamp or time if provided
+    time_str = timestamp or time
+    if time_str:
+        ts_clean = time_str.strip()
         parsed_dt = None
         for fmt in (
             "%Y-%m-%d %H:%M:%S",
@@ -187,7 +191,7 @@ def preprocess_single_input(
         else:
             raise HTTPException(
                 status_code=422,
-                detail=f"Could not parse timestamp '{timestamp}'. Expected format: 'YYYY-MM-DD HH:MM:SS' or ISO format."
+                detail=f"Could not parse timestamp/time '{time_str}'. Expected format: 'YYYY-MM-DD HH:MM:SS', 'YYYY-MM-DD', or 'HH:MM'."
             )
 
     # Defaults if neither timestamp nor explicit hour/minute were provided
@@ -257,6 +261,11 @@ class PredictRequest(BaseModel):
         description="Timestamp string (e.g. '2026-11-02 08:30:00'). Hour and minute are extracted automatically.",
         examples=["2026-11-02 08:00:00"]
     )
+    time: Optional[str] = Field(
+        None,
+        description="Time string (e.g. '08:47' or '08:47:00'). Hour and minute are extracted automatically.",
+        examples=["08:47"]
+    )
     day_period: Optional[Union[str, int]] = Field(
         None,
         description="Day period: 'Morning', 'Afternoon', 'Evening' (or 0, 1, 2). Inferred from hour if omitted.",
@@ -310,6 +319,7 @@ def root():
         "name": "Smart AC Setpoint Prediction API",
         "description": "API for predicting classroom AC setpoint temperature using trained Linear Regression.",
         "model_type": "LinearRegression",
+        "model_file": os.path.basename(MODEL_PATH),
         "status": "online",
         "documentation": "/docs",
         "health_check": "/health",
@@ -363,7 +373,8 @@ def predict(payload: PredictRequest):
         timestamp=payload.timestamp,
         day_period=payload.day_period,
         hour=payload.hour,
-        minute=payload.minute
+        minute=payload.minute,
+        time=payload.time
     )
 
     X = np.array([preprocessed["feature_vector"]], dtype=np.float64)
@@ -404,7 +415,8 @@ def predict_batch(payload: BatchPredictRequest):
             timestamp=item.timestamp,
             day_period=item.day_period,
             hour=item.hour,
-            minute=item.minute
+            minute=item.minute,
+            time=item.time
         )
         X = np.array([preprocessed["feature_vector"]], dtype=np.float64)
         raw_pred = float(model.predict(X)[0])
